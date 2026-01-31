@@ -396,7 +396,7 @@ class AnyOfRule(core.ModelBase):
 
 
 ApplyActionMode = typing.Literal["VALIDATE_ONLY", "VALIDATE_AND_EXECUTE"]
-"""ApplyActionMode"""
+"""If not specified, defaults to `VALIDATE_AND_EXECUTE`."""
 
 
 class ApplyActionOverrides(core.ModelBase):
@@ -576,7 +576,7 @@ class BatchApplyActionResponseV2(core.ModelBase):
 
 
 BatchReturnEditsMode = typing.Literal["ALL", "NONE"]
-"""BatchReturnEditsMode"""
+"""If not specified, defaults to `NONE`."""
 
 
 class BatchedFunctionLogicRule(core.ModelBase):
@@ -614,6 +614,37 @@ class CenterPoint(core.ModelBase):
 
     center: CenterPointTypes
     distance: core_models.Distance
+
+
+ConjunctiveMarkingSummary = typing.List["MarkingId"]
+"""
+The conjunctive set of markings required to access the property value. 
+All markings from a conjunctive set must be met for access.
+"""
+
+
+ContainerConjunctiveMarkingSummary = typing.List["MarkingId"]
+"""
+The conjunctive set of markings for the container of this property value,
+such as the project of a dataset. These markings may differ from the marking
+on the actual property value, but still must be satisfied for accessing the property    
+    
+All markings from a conjunctive set must be met for access.
+"""
+
+
+ContainerDisjunctiveMarkingSummary = typing.List[typing.List["MarkingId"]]
+"""
+The disjunctive set of markings for the container of this property value,
+such as the project of a dataset. These markings may differ from the marking
+on the actual property value, but still must be satisfied for accessing the property        
+All markings from a conjunctive set must be met for access.
+
+Disjunctive markings are represented as a conjunctive list of disjunctive sets.
+The top-level set is a conjunction of sets, where each inner set should be 
+treated as a unit where any marking within the set can satisfy the set.
+All sets within the top level set should be satisfied.
+"""
 
 
 class ContainsAllTermsInOrderPrefixLastTerm(core.ModelBase):
@@ -1018,6 +1049,16 @@ DerivedPropertyDefinition = typing_extensions.Annotated[
 """Definition of a derived property."""
 
 
+DisjunctiveMarkingSummary = typing.List[typing.List["MarkingId"]]
+"""
+The disjunctive set of markings required to access the property value.
+Disjunctive markings are represented as a conjunctive list of disjunctive sets.
+The top-level set is a conjunction of sets, where each inner set should be 
+treated as a unit where any marking within the set can satisfy the set.
+All sets within the top level set should be satisfied.
+"""
+
+
 class DividePropertyExpression(core.ModelBase):
     """Divides the left numeric value by the right numeric value."""
 
@@ -1101,6 +1142,12 @@ class EqualsQueryV2(core.ModelBase):
     property_identifier: typing.Optional[PropertyIdentifier] = pydantic.Field(alias=str("propertyIdentifier"), default=None)  # type: ignore[literal-required]
     value: PropertyValue
     type: typing.Literal["eq"] = "eq"
+
+
+class ErrorComputingSecurity(core.ModelBase):
+    """Indicates the server was not able to load the securities of the property."""
+
+    type: typing.Literal["errorComputingSecurity"] = "errorComputingSecurity"
 
 
 class ExactDistinctAggregationV2(core.ModelBase):
@@ -1196,6 +1243,15 @@ FuzzyV2 = bool
 """Setting fuzzy to `true` allows approximate matching in search queries that support it."""
 
 
+class GeotemporalSeriesEntry(core.ModelBase):
+    """A single geotemporal data point representing the location of an entity at a specific point in time."""
+
+    time: core.AwareDatetime
+    """An ISO 8601 timestamp."""
+
+    position: geo_models.GeoPoint
+
+
 class GetSelectedPropertyOperation(core.ModelBase):
     """
     Gets a single value of a property. Throws if the target object set is on the MANY side of the link and could
@@ -1257,8 +1313,8 @@ class HumanReadableFormat(core.ModelBase):
 class InQuery(core.ModelBase):
     """
     Returns objects where the specified field equals any of the provided values. Allows you to
-    specify a property to query on by a variety of means. Either `field` or `propertyIdentifier` must be supplied,
-    but not both.
+    specify a property to query on by a variety of means. If an empty array is provided as the value, then the filter will match all objects
+    in the object set. Either `field` or `propertyIdentifier` must be supplied, but not both.
     """
 
     field: typing.Optional[PropertyApiName] = None
@@ -1810,7 +1866,7 @@ class LoadObjectSetRequestV2(core.ModelBase):
     object_set: ObjectSet = pydantic.Field(alias=str("objectSet"))  # type: ignore[literal-required]
     order_by: typing.Optional[SearchOrderByV2] = pydantic.Field(alias=str("orderBy"), default=None)  # type: ignore[literal-required]
     select: typing.List[SelectedPropertyApiName]
-    select_v2: typing.Optional[typing.List[PropertyIdentifier]] = pydantic.Field(alias=str("selectV2"), default=None)  # type: ignore[literal-required]
+    select_v2: typing.List[PropertyIdentifier] = pydantic.Field(alias=str("selectV2"))  # type: ignore[literal-required]
     """
     The identifiers of the properties to include in the response. Only selectV2 or select should be populated,
     but not both.
@@ -1822,6 +1878,15 @@ class LoadObjectSetRequestV2(core.ModelBase):
     """
     A flag to exclude the retrieval of the `__rid` property.
     Setting this to true may improve performance of this endpoint for object types in OSV2.
+    """
+
+    load_property_securities: typing.Optional[bool] = pydantic.Field(alias=str("loadPropertySecurities"), default=None)  # type: ignore[literal-required]
+    """
+    A flag to load the securities for all properties.
+    Setting this flag to true will return a list of securities in the `propertySecurities` field of the response.
+    Returned objects will return all properties as Secured Property Values, which provide the property data
+    as well an index into the `propertySecurities` list.
+    This feature is experimental and not yet generally available.
     """
 
     snapshot: typing.Optional[bool] = None
@@ -1844,6 +1909,7 @@ class LoadObjectSetResponseV2(core.ModelBase):
     next_page_token: typing.Optional[core_models.PageToken] = pydantic.Field(alias=str("nextPageToken"), default=None)  # type: ignore[literal-required]
     total_count: core_models.TotalCount = pydantic.Field(alias=str("totalCount"))  # type: ignore[literal-required]
     compute_usage: typing.Optional[core_models.ComputeSeconds] = pydantic.Field(alias=str("computeUsage"), default=None)  # type: ignore[literal-required]
+    property_securities: typing.List[PropertySecurities] = pydantic.Field(alias=str("propertySecurities"))  # type: ignore[literal-required]
 
 
 class LoadObjectSetV2MultipleObjectTypesRequest(core.ModelBase):
@@ -1852,7 +1918,7 @@ class LoadObjectSetV2MultipleObjectTypesRequest(core.ModelBase):
     object_set: ObjectSet = pydantic.Field(alias=str("objectSet"))  # type: ignore[literal-required]
     order_by: typing.Optional[SearchOrderByV2] = pydantic.Field(alias=str("orderBy"), default=None)  # type: ignore[literal-required]
     select: typing.List[SelectedPropertyApiName]
-    select_v2: typing.Optional[typing.List[PropertyIdentifier]] = pydantic.Field(alias=str("selectV2"), default=None)  # type: ignore[literal-required]
+    select_v2: typing.List[PropertyIdentifier] = pydantic.Field(alias=str("selectV2"))  # type: ignore[literal-required]
     """
     The identifiers of the properties to include in the response. Only selectV2 or select should be populated,
     but not both.
@@ -1864,6 +1930,15 @@ class LoadObjectSetV2MultipleObjectTypesRequest(core.ModelBase):
     """
     A flag to exclude the retrieval of the `$rid` property.
     Setting this to true may improve performance of this endpoint for object types in OSV2.
+    """
+
+    load_property_securities: typing.Optional[bool] = pydantic.Field(alias=str("loadPropertySecurities"), default=None)  # type: ignore[literal-required]
+    """
+    A flag to load the securities for all properties.
+    Setting this flag to true will return a list of securities in the `propertySecurities` field of the response.
+    Returned objects will return all properties as Secured Property Values, which provide the property data
+    as well an index into the `propertySecurities` list.
+    This feature is experimental and not yet generally available.
     """
 
     snapshot: typing.Optional[bool] = None
@@ -1901,6 +1976,7 @@ class LoadObjectSetV2MultipleObjectTypesResponse(core.ModelBase):
     interface_to_object_type_mappings: typing.Dict[InterfaceTypeApiName, InterfaceToObjectTypeMappings] = pydantic.Field(alias=str("interfaceToObjectTypeMappings"))  # type: ignore[literal-required]
     interface_to_object_type_mappings_v2: typing.Dict[InterfaceTypeApiName, InterfaceToObjectTypeMappingsV2] = pydantic.Field(alias=str("interfaceToObjectTypeMappingsV2"))  # type: ignore[literal-required]
     compute_usage: typing.Optional[core_models.ComputeSeconds] = pydantic.Field(alias=str("computeUsage"), default=None)  # type: ignore[literal-required]
+    property_securities: typing.List[PropertySecurities] = pydantic.Field(alias=str("propertySecurities"))  # type: ignore[literal-required]
 
 
 class LoadObjectSetV2ObjectsOrInterfacesRequest(core.ModelBase):
@@ -1909,7 +1985,7 @@ class LoadObjectSetV2ObjectsOrInterfacesRequest(core.ModelBase):
     object_set: ObjectSet = pydantic.Field(alias=str("objectSet"))  # type: ignore[literal-required]
     order_by: typing.Optional[SearchOrderByV2] = pydantic.Field(alias=str("orderBy"), default=None)  # type: ignore[literal-required]
     select: typing.List[SelectedPropertyApiName]
-    select_v2: typing.Optional[typing.List[PropertyIdentifier]] = pydantic.Field(alias=str("selectV2"), default=None)  # type: ignore[literal-required]
+    select_v2: typing.List[PropertyIdentifier] = pydantic.Field(alias=str("selectV2"))  # type: ignore[literal-required]
     """
     The identifiers of the properties to include in the response. Only selectV2 or select should be populated,
     but not both.
@@ -2009,6 +2085,10 @@ class LteQueryV2(core.ModelBase):
     property_identifier: typing.Optional[PropertyIdentifier] = pydantic.Field(alias=str("propertyIdentifier"), default=None)  # type: ignore[literal-required]
     value: PropertyValue
     type: typing.Literal["lte"] = "lte"
+
+
+MarkingId = str
+"""The id of a classification or mandatory marking."""
 
 
 class MatchRule(core.ModelBase):
@@ -2641,6 +2721,8 @@ ObjectTypeId = str
 class ObjectTypeInterfaceImplementation(core.ModelBase):
     """ObjectTypeInterfaceImplementation"""
 
+    api_name: typing.Optional[InterfaceTypeApiName] = pydantic.Field(alias=str("apiName"), default=None)  # type: ignore[literal-required]
+    rid: typing.Optional[InterfaceTypeRid] = None
     properties: typing.Dict[SharedPropertyTypeApiName, PropertyApiName]
     properties_v2: typing.Dict[InterfacePropertyApiName, InterfacePropertyTypeImplementation] = pydantic.Field(alias=str("propertiesV2"))  # type: ignore[literal-required]
     links: typing.Dict[InterfaceLinkTypeApiName, typing.List[LinkTypeApiName]]
@@ -3120,6 +3202,16 @@ The load level of the property:
 """
 
 
+class PropertyMarkingSummary(core.ModelBase):
+    """All marking requirements applicable to a property value."""
+
+    conjunctive: typing.Optional[ConjunctiveMarkingSummary] = None
+    disjunctive: typing.Optional[DisjunctiveMarkingSummary] = None
+    container_conjunctive: typing.Optional[ContainerConjunctiveMarkingSummary] = pydantic.Field(alias=str("containerConjunctive"), default=None)  # type: ignore[literal-required]
+    container_disjunctive: typing.Optional[ContainerDisjunctiveMarkingSummary] = pydantic.Field(alias=str("containerDisjunctive"), default=None)  # type: ignore[literal-required]
+    type: typing.Literal["propertyMarkingSummary"] = "propertyMarkingSummary"
+
+
 class PropertyNumberFormattingRule(core.ModelBase):
     """Wrapper for numeric formatting options."""
 
@@ -3149,6 +3241,19 @@ PropertyOrStructFieldOfPropertyImplementation = typing_extensions.Annotated[
     pydantic.Field(discriminator="type"),
 ]
 """PropertyOrStructFieldOfPropertyImplementation"""
+
+
+class PropertySecurities(core.ModelBase):
+    """A disjunctive set of security results for a property value."""
+
+    disjunction: typing.List[PropertySecurity]
+
+
+PropertySecurity = typing_extensions.Annotated[
+    typing.Union["PropertyMarkingSummary", "UnsupportedPolicy", "ErrorComputingSecurity"],
+    pydantic.Field(discriminator="type"),
+]
+"""PropertySecurity"""
 
 
 class PropertyTimestampFormattingRule(core.ModelBase):
@@ -3231,6 +3336,7 @@ Represents the value of a property in the following format.
 | Integer                                                                                                                   | number                                                      | `238940`                                                                                           |
 | Long                                                                                                                      | string                                                      | `"58319870951433"`                                                                                 |
 | [MediaReference](https://palantir.com/docs/foundry/api/v2/ontologies-v2-resources/media-reference-properties/media-reference-property-basics/)| JSON encoded `MediaReference` object                        | `{"mimeType":"application/pdf","reference":{"type":"mediaSetViewItem","mediaSetViewItem":{"mediaSetRid":"ri.mio.main.media-set.4153d42f-ca4b-4e42-8ca5-8e6aa7edb642","mediaSetViewRid":"ri.mio.main.view.82a798ad-d637-4595-acc6-987bcf16629b","mediaItemRid":"ri.mio.main.media-item.001ec98b-1620-4814-9e17-8e9c4e536225"}}}`                       |
+| Secured Property Value                                                                                                    | JSON encoded `SecuredPropertyValue` object                  | `{"value": 10, "propertySecurityIndex" : 5}`                                                       |
 | Short                                                                                                                     | number                                                      | `8739`                                                                                             |
 | String                                                                                                                    | string                                                      | `"Call me Ishmael"`                                                                                |
 | Struct                                                                                                                    | JSON object of struct field API name -> value               | {"firstName": "Alex", "lastName": "Karp"}                                                          |
@@ -3575,7 +3681,7 @@ class ResolvedInterfacePropertyType(core.ModelBase):
 
 
 ReturnEditsMode = typing.Literal["ALL", "ALL_V2_WITH_DELETIONS", "NONE"]
-"""ReturnEditsMode"""
+"""If not specified, defaults to `NONE`."""
 
 
 class RidConstraint(core.ModelBase):
@@ -3703,7 +3809,7 @@ class SearchObjectsRequestV2(core.ModelBase):
     select: typing.List[PropertyApiName]
     """The API names of the object type properties to include in the response."""
 
-    select_v2: typing.Optional[typing.List[PropertyIdentifier]] = pydantic.Field(alias=str("selectV2"), default=None)  # type: ignore[literal-required]
+    select_v2: typing.List[PropertyIdentifier] = pydantic.Field(alias=str("selectV2"))  # type: ignore[literal-required]
     """
     The identifiers of the properties to include in the response. Only selectV2 or select should be populated,
     but not both.
@@ -3937,6 +4043,12 @@ class StaticArgument(core.ModelBase):
 
     value: DataValue
     type: typing.Literal["staticValue"] = "staticValue"
+
+
+class StreamGeotemporalSeriesValuesRequest(core.ModelBase):
+    """StreamGeotemporalSeriesValuesRequest"""
+
+    range: typing.Optional[TimeRange] = None
 
 
 class StreamTimeSeriesPointsRequest(core.ModelBase):
@@ -4371,6 +4483,12 @@ the value being automatically generated.
 """
 
 
+class UnsupportedPolicy(core.ModelBase):
+    """Indicates the property is backed by a restricted view that does not support property securities."""
+
+    type: typing.Literal["unsupportedPolicy"] = "unsupportedPolicy"
+
+
 class UuidConstraint(core.ModelBase):
     """The string must be a valid UUID (Universally Unique Identifier)."""
 
@@ -4625,9 +4743,17 @@ core.resolve_forward_references(AggregationV2, globalns=globals(), localns=local
 core.resolve_forward_references(AttachmentMetadataResponse, globalns=globals(), localns=locals())
 core.resolve_forward_references(BatchActionObjectEdit, globalns=globals(), localns=locals())
 core.resolve_forward_references(BatchActionResults, globalns=globals(), localns=locals())
+core.resolve_forward_references(ConjunctiveMarkingSummary, globalns=globals(), localns=locals())
+core.resolve_forward_references(
+    ContainerConjunctiveMarkingSummary, globalns=globals(), localns=locals()
+)
+core.resolve_forward_references(
+    ContainerDisjunctiveMarkingSummary, globalns=globals(), localns=locals()
+)
 core.resolve_forward_references(DatetimeFormat, globalns=globals(), localns=locals())
 core.resolve_forward_references(DatetimeTimezone, globalns=globals(), localns=locals())
 core.resolve_forward_references(DerivedPropertyDefinition, globalns=globals(), localns=locals())
+core.resolve_forward_references(DisjunctiveMarkingSummary, globalns=globals(), localns=locals())
 core.resolve_forward_references(DurationFormatStyle, globalns=globals(), localns=locals())
 core.resolve_forward_references(
     InterfaceLinkTypeLinkedEntityApiName, globalns=globals(), localns=locals()
@@ -4668,6 +4794,7 @@ core.resolve_forward_references(
 core.resolve_forward_references(
     PropertyOrStructFieldOfPropertyImplementation, globalns=globals(), localns=locals()
 )
+core.resolve_forward_references(PropertySecurity, globalns=globals(), localns=locals())
 core.resolve_forward_references(
     PropertyTypeReferenceOrStringConstant, globalns=globals(), localns=locals()
 )
@@ -4765,6 +4892,9 @@ __all__ = [
     "BoundingBoxValue",
     "CenterPoint",
     "CenterPointTypes",
+    "ConjunctiveMarkingSummary",
+    "ContainerConjunctiveMarkingSummary",
+    "ContainerDisjunctiveMarkingSummary",
     "ContainsAllTermsInOrderPrefixLastTerm",
     "ContainsAllTermsInOrderQuery",
     "ContainsAllTermsQuery",
@@ -4807,6 +4937,7 @@ __all__ = [
     "DeprecatedPropertyTypeStatus",
     "DerivedPropertyApiName",
     "DerivedPropertyDefinition",
+    "DisjunctiveMarkingSummary",
     "DividePropertyExpression",
     "DoesNotIntersectBoundingBoxQuery",
     "DoesNotIntersectPolygonQuery",
@@ -4817,6 +4948,7 @@ __all__ = [
     "EntrySetType",
     "EnumConstraint",
     "EqualsQueryV2",
+    "ErrorComputingSecurity",
     "ExactDistinctAggregationV2",
     "ExamplePropertyTypeStatus",
     "ExecuteQueryRequest",
@@ -4832,6 +4964,7 @@ __all__ = [
     "FunctionRid",
     "FunctionVersion",
     "FuzzyV2",
+    "GeotemporalSeriesEntry",
     "GetSelectedPropertyOperation",
     "GreatestPropertyExpression",
     "GroupMemberConstraint",
@@ -4909,6 +5042,7 @@ __all__ = [
     "LogicRuleArgument",
     "LtQueryV2",
     "LteQueryV2",
+    "MarkingId",
     "MatchRule",
     "MaxAggregationV2",
     "MediaMetadata",
@@ -5023,9 +5157,12 @@ __all__ = [
     "PropertyImplementation",
     "PropertyKnownTypeFormattingRule",
     "PropertyLoadLevel",
+    "PropertyMarkingSummary",
     "PropertyNumberFormattingRule",
     "PropertyNumberFormattingRuleType",
     "PropertyOrStructFieldOfPropertyImplementation",
+    "PropertySecurities",
+    "PropertySecurity",
     "PropertyTimestampFormattingRule",
     "PropertyTypeApiName",
     "PropertyTypeReference",
@@ -5099,6 +5236,7 @@ __all__ = [
     "SharedPropertyTypeRid",
     "StartsWithQuery",
     "StaticArgument",
+    "StreamGeotemporalSeriesValuesRequest",
     "StreamTimeSeriesPointsRequest",
     "StreamTimeSeriesValuesRequest",
     "StreamingOutputFormat",
@@ -5144,6 +5282,7 @@ __all__ = [
     "UniqueIdentifierArgument",
     "UniqueIdentifierLinkId",
     "UniqueIdentifierValue",
+    "UnsupportedPolicy",
     "UuidConstraint",
     "ValidateActionResponseV2",
     "ValidationResult",
