@@ -22,6 +22,7 @@ import typing_extensions
 
 from foundry_sdk import _core as core
 from foundry_sdk.v2.core import models as core_models
+from foundry_sdk.v2.data_health import models as data_health_models
 from foundry_sdk.v2.filesystem import models as filesystem_models
 
 
@@ -185,6 +186,16 @@ class GetDatasetSchemaResponse(core.ModelBase):
     end_transaction_rid: TransactionRid = pydantic.Field(alias=str("endTransactionRid"))  # type: ignore[literal-required]
     schema_: core_models.DatasetSchema = pydantic.Field(alias=str("schema"))  # type: ignore[literal-required]
     version_id: core_models.VersionId = pydantic.Field(alias=str("versionId"))  # type: ignore[literal-required]
+
+
+class GetHealthCheckReportsResponse(core.ModelBase):
+    """GetHealthCheckReportsResponse"""
+
+    data: typing.Dict[core_models.CheckRid, typing.Optional[data_health_models.CheckReport]]
+    """
+    A map from Check RID to the most recent report for that check. If a check is configured
+    but has not yet produced a report, the value will be absent.
+    """
 
 
 class GetJobResponse(core.ModelBase):
@@ -366,7 +377,9 @@ class View(core.ModelBase):
 class ViewBackingDataset(core.ModelBase):
     """One of the Datasets backing a View."""
 
-    branch: BranchName
+    branch: typing.Optional[BranchName] = None
+    """The branch of the backing dataset. If not specified, defaults to the branch of the View."""
+
     dataset_rid: DatasetRid = pydantic.Field(alias=str("datasetRid"))  # type: ignore[literal-required]
 
 
@@ -436,6 +449,7 @@ __all__ = [
     "GetDatasetJobsTimeFilter",
     "GetDatasetJobsTimeFilterField",
     "GetDatasetSchemaResponse",
+    "GetHealthCheckReportsResponse",
     "GetJobResponse",
     "GetSchemaDatasetsBatchRequestElement",
     "GetSchemaDatasetsBatchResponse",
